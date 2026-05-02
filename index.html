@@ -1,0 +1,1852 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Визуализатор алгоритмов на графах</title>
+<link rel="stylesheet"
+  href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.4.2/math.min.js"></script>
+<style>
+/* ─── Reset & base ─────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px;
+  background: #f0f2f5;
+  color: #1a1a1a;
+  min-width: 1200px;
+}
+
+/* ─── App shell ────────────────────────────────────────────────────────── */
+.app {
+  display: grid;
+  grid-template-columns: 260px 1fr 400px;
+  grid-template-rows: 48px 1fr;
+  height: 100vh;
+  gap: 0;
+}
+
+/* ─── Header ────────────────────────────────────────────────────────────── */
+.header {
+  grid-column: 1 / -1;
+  background: #1a1a2e;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 12px;
+  border-bottom: 2px solid #e06c00;
+}
+.header-icon { font-size: 20px; }
+.header h1 { font-size: 15px; font-weight: 600; letter-spacing: .3px; }
+.header-sub {
+  margin-left: auto;
+  font-size: 11px;
+  color: #8892b0;
+  font-style: italic;
+}
+
+/* ─── Left panel ────────────────────────────────────────────────────────── */
+.left-panel {
+  background: #fff;
+  border-right: 1px solid #e0e0e0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 14px 12px;
+  gap: 14px;
+}
+
+.panel-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  color: #888;
+  margin-bottom: 5px;
+}
+
+.panel-label span {
+  color: #e06c00;
+}
+
+textarea, input[type="text"] {
+  width: 100%;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 7px 9px;
+  font-family: 'JetBrains Mono', 'Fira Mono', 'Courier New', monospace;
+  font-size: 12px;
+  color: #1a1a1a;
+  background: #fafafa;
+  resize: vertical;
+  transition: border-color .15s;
+  outline: none;
+}
+textarea:focus, input[type="text"]:focus {
+  border-color: #e06c00;
+  background: #fff;
+}
+textarea { height: 140px; line-height: 1.6; }
+
+/* ─── Toggle switch ─────────────────────────────────────────────────────── */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.toggle-label { font-size: 12px; color: #555; }
+.toggle-wrap {
+  display: flex;
+  background: #f0f2f5;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.toggle-wrap button {
+  padding: 5px 12px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  color: #888;
+  transition: all .15s;
+}
+.toggle-wrap button.active {
+  background: #1a1a2e;
+  color: #fff;
+}
+
+/* ─── Run button ────────────────────────────────────────────────────────── */
+.run-btn {
+  width: 100%;
+  padding: 11px;
+  background: #e06c00;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: .4px;
+  transition: background .15s, transform .1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+.run-btn:hover { background: #c85f00; }
+.run-btn:active { transform: scale(.98); }
+.run-btn svg { flex-shrink: 0; }
+
+/* ─── Preset buttons ────────────────────────────────────────────────────── */
+.presets { display: flex; flex-direction: column; gap: 6px; }
+.preset-btn {
+  width: 100%;
+  padding: 7px 10px;
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  text-align: left;
+  color: #444;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  transition: all .15s;
+}
+.preset-btn:hover { background: #ffe8d6; border-color: #e06c00; color: #c85f00; }
+.preset-tag {
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: #e0e0e0;
+  color: #666;
+  font-weight: 700;
+  margin-left: auto;
+}
+
+/* ─── Divider ───────────────────────────────────────────────────────────── */
+.divider {
+  height: 1px;
+  background: #eee;
+  margin: 2px 0;
+}
+
+/* ─── Center (canvas) panel ─────────────────────────────────────────────── */
+.center-panel {
+  background: #f7f8fa;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+.canvas-wrap {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+#graph-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+}
+#graph-canvas:active { cursor: grabbing; }
+
+.canvas-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: #fff;
+  border-bottom: 1px solid #e0e0e0;
+  font-size: 11px;
+  color: #666;
+}
+.canvas-toolbar button {
+  padding: 4px 10px;
+  border: 1px solid #ddd;
+  background: #fff;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 11px;
+  color: #555;
+  transition: all .15s;
+}
+.canvas-toolbar button:hover { background: #f0f0f0; }
+.canvas-toolbar button.active-tool {
+  background: #1a1a2e;
+  color: #fff;
+  border-color: #1a1a2e;
+}
+.canvas-toolbar .sep { width: 1px; height: 16px; background: #e0e0e0; }
+
+.canvas-legend {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 12px;
+  background: #fff;
+  border-top: 1px solid #e0e0e0;
+  font-size: 10px;
+  color: #888;
+}
+.legend-dot {
+  width: 10px; height: 10px; border-radius: 50%; display: inline-block;
+}
+
+.canvas-hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: #ccc;
+  pointer-events: none;
+}
+.canvas-hint svg { opacity: .3; }
+.canvas-hint p { font-size: 12px; margin-top: 8px; }
+
+/* ─── Right panel ───────────────────────────────────────────────────────── */
+.right-panel {
+  background: #fff;
+  border-left: 1px solid #e0e0e0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ─── Tabs ──────────────────────────────────────────────────────────────── */
+.tabs {
+  display: flex;
+  border-bottom: 1px solid #e0e0e0;
+  background: #fafafa;
+  flex-shrink: 0;
+}
+.tab-btn {
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  color: #888;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: all .15s;
+  white-space: nowrap;
+}
+.tab-btn:hover { color: #444; }
+.tab-btn.active {
+  color: #e06c00;
+  border-bottom-color: #e06c00;
+  background: #fff;
+}
+
+.tab-panels {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ─── Algorithm cards ───────────────────────────────────────────────────── */
+.algo-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.algo-card {
+  border: 1px solid #e8e8e8;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.algo-card-head {
+  padding: 8px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.algo-card-head.dijkstra { background: #fff3e0; color: #e06c00; }
+.algo-card-head.bellman  { background: #e8f5e9; color: #2e7d32; }
+.algo-card-head.floyd    { background: #e3f2fd; color: #1565c0; }
+
+.complexity-badge {
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-family: monospace;
+  font-weight: 700;
+}
+.badge-dijkstra { background: #ffe0b2; color: #e06c00; }
+.badge-bellman  { background: #c8e6c9; color: #2e7d32; }
+.badge-floyd    { background: #bbdefb; color: #1565c0; }
+
+.algo-card-body { padding: 8px 10px; }
+.algo-stat {
+  font-size: 10px;
+  color: #888;
+  margin-bottom: 2px;
+}
+.algo-stat strong {
+  color: #1a1a1a;
+  font-family: monospace;
+}
+.warn-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9px;
+  padding: 2px 6px;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 3px;
+  color: #856404;
+  margin-top: 4px;
+}
+
+/* ─── Distance table ────────────────────────────────────────────────────── */
+.dist-table-wrap {
+  max-height: 120px;
+  overflow-y: auto;
+  margin-top: 6px;
+  border: 1px solid #eee;
+  border-radius: 3px;
+}
+.dist-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10px;
+  font-family: monospace;
+}
+.dist-table th {
+  background: #f5f5f5;
+  padding: 3px 6px;
+  text-align: left;
+  font-weight: 700;
+  color: #555;
+  position: sticky;
+  top: 0;
+}
+.dist-table td { padding: 3px 6px; border-top: 1px solid #f0f0f0; }
+.dist-table tr:hover td { background: #fafafa; }
+.dist-inf { color: #ccc; }
+.dist-zero { color: #2e7d32; font-weight: 700; }
+
+/* ─── Bar chart ─────────────────────────────────────────────────────────── */
+.bar-chart-section { margin-top: 14px; }
+.section-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #555;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.section-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #eee;
+}
+.bar-chart { display: flex; flex-direction: column; gap: 6px; }
+.bar-row { display: flex; align-items: center; gap: 8px; font-size: 10px; }
+.bar-name { width: 80px; font-weight: 600; color: #555; }
+.bar-track {
+  flex: 1;
+  height: 14px;
+  background: #f0f0f0;
+  border-radius: 2px;
+  overflow: hidden;
+}
+.bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width .4s ease;
+}
+.bar-fill.dijkstra { background: #ff9800; }
+.bar-fill.bellman  { background: #4caf50; }
+.bar-fill.floyd    { background: #2196f3; }
+.bar-val { width: 60px; text-align: right; color: #888; font-family: monospace; }
+
+/* ─── Metrics tab ───────────────────────────────────────────────────────── */
+.metrics-table-wrap { overflow-x: auto; margin-bottom: 14px; }
+.metrics-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  font-family: monospace;
+}
+.metrics-table th {
+  background: #1a1a2e;
+  color: #fff;
+  padding: 6px 10px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 10px;
+}
+.metrics-table td { padding: 5px 10px; border-bottom: 1px solid #f0f0f0; }
+.metrics-table tr:hover td { background: #fafafa; }
+.tag-center { background: #e3f2fd; color: #1565c0; padding: 1px 6px; border-radius: 10px; font-size: 9px; font-weight: 700; }
+.tag-median { background: #f3e5f5; color: #7b1fa2; padding: 1px 6px; border-radius: 10px; font-size: 9px; font-weight: 700; }
+
+.rad-diam-box {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.rd-card {
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 10px;
+  text-align: center;
+}
+.rd-label { font-size: 10px; color: #888; margin-bottom: 4px; }
+.rd-value { font-size: 24px; font-weight: 700; font-family: monospace; }
+.rd-value.radius { color: #2e7d32; }
+.rd-value.diameter { color: #1565c0; }
+
+.formula-box {
+  background: #f8f9fa;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 12px;
+  font-family: monospace;
+  font-size: 12px;
+  text-align: center;
+  color: #444;
+}
+.formula-box .f-title { font-size: 10px; color: #888; margin-bottom: 6px; font-family: sans-serif; }
+
+/* ─── Spectral tab ──────────────────────────────────────────────────────── */
+.matrix-wrap {
+  overflow-x: auto;
+  margin-bottom: 14px;
+}
+.matrix-table {
+  border-collapse: collapse;
+  font-size: 11px;
+  font-family: monospace;
+}
+.matrix-table td {
+  padding: 4px 8px;
+  border: 1px solid #e8e8e8;
+  text-align: right;
+  min-width: 32px;
+}
+.matrix-table td.diag { background: #fff3e0; font-weight: 700; }
+.matrix-table td.neg  { color: #c62828; }
+.matrix-table td.zero { color: #bbb; }
+
+.eigenvalue-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.ev-chip {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-family: monospace;
+  font-size: 11px;
+  background: #f0f2f5;
+  border: 1px solid #e0e0e0;
+  color: #444;
+}
+.ev-chip.fiedler {
+  background: #e3f2fd;
+  border-color: #2196f3;
+  color: #1565c0;
+  font-weight: 700;
+}
+.ev-chip.zero-ev { background: #fce4ec; border-color: #e91e63; color: #880e4f; }
+
+.connectivity-box {
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  font-size: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.connectivity-box.connected    { background: #e8f5e9; border: 1px solid #4caf50; }
+.connectivity-box.disconnected { background: #fce4ec; border: 1px solid #e91e63; }
+.conn-icon { font-size: 18px; flex-shrink: 0; }
+.conn-text strong { display: block; font-size: 12px; margin-bottom: 2px; }
+.conn-text span { font-size: 11px; color: #666; }
+
+.fiedler-table-wrap { overflow-x: auto; margin-bottom: 12px; }
+.fiedler-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  font-family: monospace;
+}
+.fiedler-table th {
+  background: #f5f5f5;
+  padding: 5px 10px;
+  text-align: left;
+  font-size: 10px;
+  font-weight: 700;
+  color: #555;
+}
+.fiedler-table td { padding: 4px 10px; border-top: 1px solid #f0f0f0; }
+.cluster-pos { color: #1565c0; font-weight: 700; }
+.cluster-neg { color: #c62828; font-weight: 700; }
+
+.show-fiedler-btn {
+  width: 100%;
+  padding: 9px;
+  background: #1a1a2e;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: background .15s;
+}
+.show-fiedler-btn:hover { background: #2d2d5e; }
+
+/* ─── Code tab ──────────────────────────────────────────────────────────── */
+.accordion { display: flex; flex-direction: column; gap: 8px; }
+.acc-item {
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.acc-head {
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  cursor: pointer;
+  user-select: none;
+  background: #fafafa;
+  transition: background .15s;
+}
+.acc-head:hover { background: #f0f0f0; }
+.acc-title { font-size: 12px; font-weight: 700; color: #1a1a1a; flex: 1; }
+.acc-badge { font-size: 9px; font-family: monospace; padding: 2px 7px; border-radius: 10px; margin-left: 8px; }
+.acc-arrow { font-size: 10px; color: #888; transition: transform .2s; }
+.acc-item.open .acc-arrow { transform: rotate(90deg); }
+.acc-body { display: none; position: relative; }
+.acc-item.open .acc-body { display: block; }
+
+.copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 4px 10px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 10px;
+  cursor: pointer;
+  color: #555;
+  z-index: 2;
+  transition: all .15s;
+}
+.copy-btn:hover { background: #f0f0f0; }
+.copy-btn.copied { background: #e8f5e9; border-color: #4caf50; color: #2e7d32; }
+
+.acc-body pre {
+  margin: 0;
+  padding: 12px 14px;
+  font-size: 11.5px;
+  line-height: 1.65;
+  overflow-x: auto;
+  background: #f8f9fa;
+}
+.acc-body code { font-family: 'JetBrains Mono', 'Fira Mono', 'Courier New', monospace; }
+
+/* ─── Empty / loading states ────────────────────────────────────────────── */
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #ccc;
+}
+.empty-state p { font-size: 12px; margin-top: 8px; }
+
+/* ─── Scrollbars ────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d0d0d0; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #b0b0b0; }
+
+/* ─── Tooltip ───────────────────────────────────────────────────────────── */
+.tooltip-el {
+  position: fixed;
+  background: rgba(26,26,46,.92);
+  color: #fff;
+  font-size: 11px;
+  padding: 5px 9px;
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 1000;
+  display: none;
+  font-family: monospace;
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ── Header ─────────────────────────────────────────────── -->
+  <header class="header">
+    <span class="header-icon">⬡</span>
+    <h1>Визуализатор алгоритмов на графах</h1>
+    <span class="header-sub">Теория графов · Курсовая работа</span>
+  </header>
+
+  <!-- ── Left panel ──────────────────────────────────────────── -->
+  <aside class="left-panel">
+
+    <div>
+      <div class="panel-label">Список рёбер <span>(u v вес)</span></div>
+      <textarea id="edge-input" placeholder="1 2 4&#10;2 3 1&#10;1 3 7&#10;3 4 2"></textarea>
+    </div>
+
+    <div>
+      <div class="panel-label">Источник <span>(вершина)</span></div>
+      <input type="text" id="source-input" placeholder="1" value="1">
+    </div>
+
+    <div>
+      <div class="panel-label">Тип графа</div>
+      <div class="toggle-wrap" id="dir-toggle">
+        <button class="active" data-val="undirected">Неориентированный</button>
+        <button data-val="directed">Ориентированный</button>
+      </div>
+    </div>
+
+    <button class="run-btn" id="run-btn">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2.5">
+        <polygon points="5 3 19 12 5 21 5 3"/>
+      </svg>
+      Запустить
+    </button>
+
+    <div class="divider"></div>
+
+    <div>
+      <div class="panel-label">Примеры</div>
+      <div class="presets">
+        <button class="preset-btn" data-preset="small">
+          ⬡ Малый граф
+          <span class="preset-tag">4 V</span>
+        </button>
+        <button class="preset-btn" data-preset="social">
+          ◎ Социальная сеть
+          <span class="preset-tag">7 V</span>
+        </button>
+        <button class="preset-btn" data-preset="negative">
+          ± Отрицательные веса
+          <span class="preset-tag">neg</span>
+        </button>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ── Center (canvas) ─────────────────────────────────────── -->
+  <main class="center-panel">
+
+    <div class="canvas-toolbar">
+      <span>Граф</span>
+      <div class="sep"></div>
+      <button id="btn-reset-view">⟳ Сброс вида</button>
+      <button id="btn-fiedler" class="fiedler-btn">Fiedler-кластеризация</button>
+      <div class="sep"></div>
+      <span id="graph-info" style="color:#aaa; font-size:10px;">— нет данных —</span>
+    </div>
+
+    <div class="canvas-wrap">
+      <canvas id="graph-canvas"></canvas>
+      <div class="canvas-hint" id="canvas-hint">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none"
+             stroke="#ccc" stroke-width="1.5">
+          <circle cx="5" cy="12" r="2"/><circle cx="19" cy="5" r="2"/>
+          <circle cx="19" cy="19" r="2"/>
+          <line x1="7" y1="12" x2="17" y2="6"/>
+          <line x1="7" y1="12" x2="17" y2="18"/>
+          <line x1="17" y1="6" x2="17" y2="18"/>
+        </svg>
+        <p>Введите рёбра и нажмите «Запустить»</p>
+      </div>
+    </div>
+
+    <div class="canvas-legend" id="canvas-legend" style="display:none">
+      <span class="legend-dot" style="background:#4caf50"></span><span>Близко</span>
+      <span class="legend-dot" style="background:#ff9800"></span><span>Средне</span>
+      <span class="legend-dot" style="background:#f44336"></span><span>Далеко</span>
+      <span class="legend-dot" style="background:#bdbdbd"></span><span>Недостижимо</span>
+      <span style="margin-left:auto; color:#aaa">Перетаскивание мышью · Колесо — масштаб</span>
+    </div>
+
+  </main>
+
+  <!-- ── Right panel ─────────────────────────────────────────── -->
+  <aside class="right-panel">
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="algorithms">Алгоритмы</button>
+      <button class="tab-btn" data-tab="metrics">Метрики</button>
+      <button class="tab-btn" data-tab="spectral">Спектральный</button>
+      <button class="tab-btn" data-tab="code">Код</button>
+    </div>
+
+    <div class="tab-panels">
+
+      <!-- Tab 1: Algorithms -->
+      <div class="tab-panel active" id="tab-algorithms">
+        <div class="empty-state" id="algo-empty">
+          <p>Запустите граф, чтобы увидеть результаты алгоритмов</p>
+        </div>
+        <div id="algo-results" style="display:none">
+          <div class="algo-cards" id="algo-cards"></div>
+          <div class="bar-chart-section">
+            <div class="section-title">Сравнение по числу операций</div>
+            <div class="bar-chart" id="bar-chart"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: Metrics -->
+      <div class="tab-panel" id="tab-metrics">
+        <div class="empty-state" id="metrics-empty">
+          <p>Запустите граф, чтобы увидеть метрики</p>
+        </div>
+        <div id="metrics-results" style="display:none">
+          <div class="rad-diam-box" id="rad-diam-box"></div>
+          <div class="formula-box" id="formula-box"></div>
+          <div class="section-title" style="margin-top:14px">Эксцентриситеты вершин</div>
+          <div class="metrics-table-wrap">
+            <table class="metrics-table" id="metrics-table">
+              <thead>
+                <tr>
+                  <th>Вершина</th>
+                  <th>Эксцентриситет</th>
+                  <th>Статус</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 3: Spectral -->
+      <div class="tab-panel" id="tab-spectral">
+        <div class="empty-state" id="spectral-empty">
+          <p>Запустите граф, чтобы увидеть спектральный анализ</p>
+        </div>
+        <div id="spectral-results" style="display:none">
+          <div class="section-title">Матрица Лапласа L = D − A</div>
+          <div class="matrix-wrap" id="laplacian-wrap"></div>
+          <div class="section-title" style="margin-top:12px">Собственные значения λ₁ ≤ … ≤ λₙ</div>
+          <div class="eigenvalue-list" id="eigenvalue-list"></div>
+          <div id="connectivity-box"></div>
+          <div class="section-title">Вектор Фидлера</div>
+          <div class="fiedler-table-wrap" id="fiedler-table-wrap"></div>
+          <button class="show-fiedler-btn" id="show-fiedler-btn">
+            ◑ Показать Fiedler-кластеризацию на графе
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab 4: Code -->
+      <div class="tab-panel" id="tab-code">
+        <div class="accordion" id="accordion"></div>
+      </div>
+
+    </div>
+  </aside>
+
+</div>
+
+<div class="tooltip-el" id="tooltip"></div>
+
+<!-- ─── JAVASCRIPT ─────────────────────────────────────────────────────── -->
+<script>
+'use strict';
+
+/* ════════════════════════════════════════════════════════════════════════
+   PART A — PRESETS & CONSTANTS
+   ════════════════════════════════════════════════════════════════════════ */
+const PRESETS = {
+  small: {
+    edges: '1 2 4\n2 3 1\n1 3 7\n3 4 2\n4 1 5',
+    source: '1',
+    directed: false
+  },
+  social: {
+    edges: '1 2 1\n1 3 1\n2 3 1\n2 4 1\n3 5 1\n4 5 1\n4 6 1\n5 7 1\n6 7 1',
+    source: '1',
+    directed: false
+  },
+  negative: {
+    edges: '1 2 6\n1 3 7\n2 3 8\n2 4 5\n2 5 -4\n3 4 -3\n3 5 9\n4 2 -2\n5 4 7\n5 1 2',
+    source: '1',
+    directed: true
+  }
+};
+
+const NODE_R    = 18;
+const SPRING_L  = 120;
+const SPRING_K  = 0.04;
+const REPULSE   = 2000;
+const DAMPING   = 0.85;
+const INF       = 1e15;
+
+/* ════════════════════════════════════════════════════════════════════════
+   PART B — STATE
+   ════════════════════════════════════════════════════════════════════════ */
+const state = {
+  nodes: [],         // { id, label, x, y, vx, vy }
+  edges: [],         // { u, v, w, directed }
+  directed: false,
+  source: null,
+  distances: {},     // dijkstra result
+  fiedlerMode: false,
+  fiedlerVec: null,  // { nodeId: value }
+  hasRun: false,
+  // canvas pan/zoom
+  offsetX: 0, offsetY: 0, scale: 1,
+  dragging: null, dragOffX: 0, dragOffY: 0,
+  panning: false, panStartX: 0, panStartY: 0, panOX: 0, panOY: 0,
+  simRunning: false, simTick: 0
+};
+
+/* ════════════════════════════════════════════════════════════════════════
+   PART C — PARSING
+   ════════════════════════════════════════════════════════════════════════ */
+function parseGraph(text, directed) {
+  const nodeMap = new Map();
+  const edges = [];
+  const lines = text.trim().split('\n');
+  for (const raw of lines) {
+    const parts = raw.trim().split(/\s+/);
+    if (parts.length < 2) continue;
+    const [u, v] = [parts[0], parts[1]];
+    const w = parts[2] !== undefined ? parseFloat(parts[2]) : 1;
+    if (isNaN(w)) continue;
+    for (const id of [u, v]) {
+      if (!nodeMap.has(id)) nodeMap.set(id, { id, label: id });
+    }
+    edges.push({ u, v, w, directed });
+  }
+  const nodes = Array.from(nodeMap.values());
+  return { nodes, edges };
+}
+
+function layoutNodes(nodes, W, H) {
+  const cx = W / 2, cy = H / 2, r = Math.min(W, H) * 0.32;
+  nodes.forEach((n, i) => {
+    const angle = (2 * Math.PI * i / nodes.length) - Math.PI / 2;
+    n.x  = cx + r * Math.cos(angle);
+    n.y  = cy + r * Math.sin(angle);
+    n.vx = (Math.random() - .5) * .5;
+    n.vy = (Math.random() - .5) * .5;
+  });
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   PART D — FORCE-DIRECTED SIMULATION
+   ════════════════════════════════════════════════════════════════════════ */
+function simStep(nodes, edges, W, H) {
+  const n = nodes.length;
+  const fx = new Float64Array(n);
+  const fy = new Float64Array(n);
+  const idx = new Map(nodes.map((nd, i) => [nd.id, i]));
+
+  // Repulsion
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      let dx = nodes[i].x - nodes[j].x;
+      let dy = nodes[i].y - nodes[j].y;
+      let d2 = dx * dx + dy * dy + 1;
+      let f  = REPULSE / d2;
+      fx[i] += f * dx; fy[i] += f * dy;
+      fx[j] -= f * dx; fy[j] -= f * dy;
+    }
+  }
+
+  // Spring (edges)
+  for (const e of edges) {
+    const i = idx.get(e.u), j = idx.get(e.v);
+    if (i === undefined || j === undefined) continue;
+    let dx = nodes[j].x - nodes[i].x;
+    let dy = nodes[j].y - nodes[i].y;
+    let d  = Math.sqrt(dx * dx + dy * dy) + 1e-6;
+    let f  = SPRING_K * (d - SPRING_L);
+    fx[i] += f * dx / d; fy[i] += f * dy / d;
+    fx[j] -= f * dx / d; fy[j] -= f * dy / d;
+  }
+
+  // Center pull
+  for (let i = 0; i < n; i++) {
+    fx[i] += (W / 2 - nodes[i].x) * 0.008;
+    fy[i] += (H / 2 - nodes[i].y) * 0.008;
+  }
+
+  // Integrate
+  for (let i = 0; i < n; i++) {
+    nodes[i].vx = (nodes[i].vx + fx[i]) * DAMPING;
+    nodes[i].vy = (nodes[i].vy + fy[i]) * DAMPING;
+    nodes[i].x  = Math.max(NODE_R + 4, Math.min(W - NODE_R - 4, nodes[i].x + nodes[i].vx));
+    nodes[i].y  = Math.max(NODE_R + 4, Math.min(H - NODE_R - 4, nodes[i].y + nodes[i].vy));
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   PART E — CANVAS DRAWING
+   ════════════════════════════════════════════════════════════════════════ */
+const canvas = document.getElementById('graph-canvas');
+const ctx    = canvas.getContext('2d');
+
+function resizeCanvas() {
+  const wrap = canvas.parentElement;
+  canvas.width  = wrap.clientWidth;
+  canvas.height = wrap.clientHeight;
+}
+
+function nodeColor(node) {
+  if (state.fiedlerMode && state.fiedlerVec) {
+    const v = state.fiedlerVec[node.id];
+    if (v === undefined) return '#9e9e9e';
+    return v >= 0 ? '#1565c0' : '#c62828';
+  }
+  if (!state.hasRun) return '#5c6bc0';
+  const d = state.distances[node.id];
+  if (d === undefined || d >= INF) return '#bdbdbd';
+  if (d === 0) return '#4caf50';
+  // map d to green→orange→red
+  const maxD = Math.max(...Object.values(state.distances).filter(x => x < INF), 1);
+  const t = d / maxD;
+  if (t < 0.5) {
+    const r = Math.round(76  + (255-76)  * (t * 2));
+    const g = Math.round(175 + (152-175) * (t * 2));
+    const b = Math.round(80  + (0-80)   * (t * 2));
+    return `rgb(${r},${g},${b})`;
+  } else {
+    const r = Math.round(255 + (244-255) * ((t-.5)*2));
+    const g = Math.round(152 + (67-152)  * ((t-.5)*2));
+    const b = Math.round(0   + (54-0)    * ((t-.5)*2));
+    return `rgb(${r},${g},${b})`;
+  }
+}
+
+function drawArrow(x1, y1, x2, y2, color) {
+  const dx = x2 - x1, dy = y2 - y1;
+  const len = Math.sqrt(dx*dx + dy*dy);
+  if (len < 1) return;
+  const nx = dx/len, ny = dy/len;
+  const ax = x2 - nx*NODE_R, ay = y2 - ny*NODE_R;
+  const size = 10;
+  const px = -ny, py = nx;
+  ctx.beginPath();
+  ctx.moveTo(ax, ay);
+  ctx.lineTo(ax - nx*size + px*size*.4, ay - ny*size + py*size*.4);
+  ctx.lineTo(ax - nx*size - px*size*.4, ay - ny*size - py*size*.4);
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
+}
+
+function draw() {
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  if (!state.nodes.length) return;
+
+  ctx.save();
+  ctx.translate(state.offsetX, state.offsetY);
+  ctx.scale(state.scale, state.scale);
+
+  const nodeMap = new Map(state.nodes.map(n => [n.id, n]));
+
+  // Draw edges
+  for (const e of state.edges) {
+    const a = nodeMap.get(e.u), b = nodeMap.get(e.v);
+    if (!a || !b) continue;
+    const color = '#9e9e9e';
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5 / state.scale;
+    ctx.stroke();
+
+    if (e.directed) drawArrow(a.x, a.y, b.x, b.y, color);
+
+    // Weight label
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(mx, my, 9 / state.scale, 0, Math.PI*2);
+    ctx.fill();
+    ctx.font = `${11/state.scale}px 'JetBrains Mono','Courier New',monospace`;
+    ctx.fillStyle = '#555';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(e.w, mx, my);
+  }
+
+  // Draw nodes
+  for (const n of state.nodes) {
+    const fill = nodeColor(n);
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, NODE_R, 0, Math.PI*2);
+    ctx.fillStyle = fill;
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2 / state.scale;
+    ctx.stroke();
+
+    // Source ring
+    if (state.source === n.id && state.hasRun) {
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, NODE_R + 4, 0, Math.PI*2);
+      ctx.strokeStyle = '#ffd54f';
+      ctx.lineWidth = 2.5 / state.scale;
+      ctx.stroke();
+    }
+
+    ctx.font = `bold ${12/state.scale}px -apple-system,sans-serif`;
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(n.label, n.x, n.y);
+  }
+
+  ctx.restore();
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   PART F — ALGORITHMS
+   ════════════════════════════════════════════════════════════════════════ */
+
+// ── Dijkstra ──────────────────────────────────────────────────────────────
+function dijkstra(nodes, edges, source, directed) {
+  const t0 = performance.now();
+  let ops = 0;
+  const dist = {}, prev = {}, visited = new Set();
+  for (const n of nodes) { dist[n.id] = INF; prev[n.id] = null; }
+  dist[source] = 0;
+  const pq = [[0, source]];
+  while (pq.length) {
+    pq.sort((a, b) => a[0] - b[0]); ops++;
+    const [d, u] = pq.shift();
+    if (visited.has(u)) continue;
+    visited.add(u);
+    for (const e of edges) {
+      ops++;
+      const nbr = e.u === u ? e.v : (!directed && e.v === u ? e.u : null);
+      if (!nbr) continue;
+      const nd = d + e.w;
+      if (nd < dist[nbr]) { dist[nbr] = nd; prev[nbr] = u; pq.push([nd, nbr]); }
+    }
+  }
+  const dt = (performance.now() - t0) * 1000;
+  return { dist, prev, ops, time: dt };
+}
+
+// ── Bellman-Ford ──────────────────────────────────────────────────────────
+function bellmanFord(nodes, edges, source, directed) {
+  const t0 = performance.now();
+  let ops = 0;
+  const dist = {}, prev = {};
+  for (const n of nodes) { dist[n.id] = INF; prev[n.id] = null; }
+  dist[source] = 0;
+  const allEdges = directed
+    ? edges
+    : [...edges, ...edges.map(e => ({ u: e.v, v: e.u, w: e.w, directed }))];
+  for (let i = 0; i < nodes.length - 1; i++) {
+    for (const e of allEdges) {
+      ops++;
+      if (dist[e.u] < INF && dist[e.u] + e.w < dist[e.v]) {
+        dist[e.v] = dist[e.u] + e.w;
+        prev[e.v] = e.u;
+      }
+    }
+  }
+  const dt = (performance.now() - t0) * 1000;
+  return { dist, prev, ops, time: dt };
+}
+
+// ── Floyd-Warshall ────────────────────────────────────────────────────────
+function floydWarshall(nodes, edges, directed) {
+  const t0 = performance.now();
+  let ops = 0;
+  const ids = nodes.map(n => n.id);
+  const n = ids.length;
+  const idx = new Map(ids.map((id, i) => [id, i]));
+  const D = Array.from({length: n}, () => Array(n).fill(INF));
+  const P = Array.from({length: n}, (_, i) => Array.from({length: n}, (_, j) => j));
+  for (let i = 0; i < n; i++) D[i][i] = 0;
+  for (const e of edges) {
+    const i = idx.get(e.u), j = idx.get(e.v);
+    if (i === undefined || j === undefined) continue;
+    D[i][j] = Math.min(D[i][j], e.w);
+    if (!directed) D[j][i] = Math.min(D[j][i], e.w);
+  }
+  for (let k = 0; k < n; k++)
+    for (let i = 0; i < n; i++)
+      for (let j = 0; j < n; j++) {
+        ops++;
+        if (D[i][k] + D[k][j] < D[i][j]) {
+          D[i][j] = D[i][k] + D[k][j];
+          P[i][j] = P[i][k];
+        }
+      }
+  const dt = (performance.now() - t0) * 1000;
+  return { D, P, ids, idx, ops, time: dt };
+}
+
+function reconstruct(prev, source, target) {
+  const path = [];
+  let cur = target;
+  while (cur && cur !== source) {
+    path.unshift(cur);
+    cur = prev[cur];
+    if (path.length > 100) return ['...'];
+  }
+  if (cur === source) path.unshift(source);
+  else return [];
+  return path;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   PART G — GRAPH METRICS
+   ════════════════════════════════════════════════════════════════════════ */
+function computeMetrics(nodes, edges, directed) {
+  const ids = nodes.map(n => n.id);
+  const n = ids.length;
+  const { D, idx } = floydWarshall(nodes, edges, directed);
+  const ecc = {};
+  for (let i = 0; i < n; i++) {
+    let mx = 0;
+    for (let j = 0; j < n; j++) if (i !== j) mx = Math.max(mx, D[i][j]);
+    ecc[ids[i]] = mx >= INF ? Infinity : mx;
+  }
+  const finite = Object.values(ecc).filter(x => isFinite(x));
+  const radius   = finite.length ? Math.min(...finite) : Infinity;
+  const diameter = finite.length ? Math.max(...finite) : Infinity;
+  const centers  = ids.filter(id => ecc[id] === radius);
+  const medians  = ids.filter(id => {
+    const i = idx.get(id);
+    let sum = 0;
+    for (let j = 0; j < n; j++) sum += D[i][j] < INF ? D[i][j] : 0;
+    return true; // we'll rank by sum
+  });
+  // median = vertices with min sum of distances
+  const sums = ids.map(id => {
+    const i = idx.get(id);
+    let s = 0;
+    for (let j = 0; j < n; j++) s += D[i][j] < INF ? D[i][j] : 0;
+    return { id, s };
+  });
+  const minSum = Math.min(...sums.map(x => x.s));
+  const medianSet = new Set(sums.filter(x => x.s === minSum).map(x => x.id));
+  return { ecc, radius, diameter, centers, medians: [...medianSet] };
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   PART H — SPECTRAL ANALYSIS
+   ════════════════════════════════════════════════════════════════════════ */
+function computeLaplacian(nodes, edges, directed) {
+  const ids = nodes.map(n => n.id);
+  const n = ids.length;
+  const idx = new Map(ids.map((id, i) => [id, i]));
+  const L = Array.from({length: n}, () => Array(n).fill(0));
+  for (const e of edges) {
+    const i = idx.get(e.u), j = idx.get(e.v);
+    if (i === undefined || j === undefined) continue;
+    L[i][i] += 1; L[j][j] += 1;
+    L[i][j] -= 1; L[j][i] -= 1;
+    if (directed) { L[j][j] += 0; } // for directed, simple in-degree version
+  }
+  return { L, ids, n };
+}
+
+function computeEigenvalues(L, n) {
+  try {
+    const M = math.matrix(L);
+    const { values, vectors } = math.eigs(M);
+    const vals = Array.from(values.toArray ? values.toArray() : values)
+      .map(v => typeof v === 'object' && v.re !== undefined ? v.re : +v);
+    vals.sort((a, b) => a - b);
+    const vecsArr = vectors.toArray ? vectors.toArray() : vectors;
+    const fiedlerIdx = 1; // λ₂
+    let fiedlerVec = null;
+    if (vecsArr && n > 1) {
+      // columns are eigenvectors; find column for λ₂
+      // math.eigs returns columns = eigenvectors sorted by eigenvalue
+      fiedlerVec = Array.from({length: n}, (_, i) =>
+        typeof vecsArr[i][fiedlerIdx] === 'object'
+          ? vecsArr[i][fiedlerIdx].re
+          : +vecsArr[i][fiedlerIdx]
+      );
+    }
+    return { vals, fiedlerVec };
+  } catch (e) {
+    return { vals: [], fiedlerVec: null, error: e.message };
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   PART I — RENDER RESULTS
+   ════════════════════════════════════════════════════════════════════════ */
+function fmt(x) {
+  if (x >= INF || !isFinite(x)) return '<span class="dist-inf">∞</span>';
+  if (x === 0) return '<span class="dist-zero">0</span>';
+  return Number.isInteger(x) ? x : x.toFixed(2);
+}
+
+function renderAlgorithms(nodes, edges, source, directed) {
+  const hasNeg = edges.some(e => e.w < 0);
+  const dRes = dijkstra(nodes, edges, source, directed);
+  const bRes = bellmanFord(nodes, edges, source, directed);
+  const fRes = floydWarshall(nodes, edges, directed);
+  state.distances = dRes.dist;
+
+  // Build distance rows for Floyd from source
+  const srcIdx = fRes.idx.get(source);
+  const fDist = {};
+  if (srcIdx !== undefined) {
+    fRes.ids.forEach((id, j) => { fDist[id] = fRes.D[srcIdx][j]; });
+  }
+
+  const algos = [
+    {
+      name: 'Дейкстра', cls: 'dijkstra', badge: 'badge-dijkstra',
+      complexity: 'O(V²)', res: dRes, dist: dRes.dist, prev: dRes.prev,
+      warn: hasNeg ? '⚠ Отрицательные веса' : null
+    },
+    {
+      name: 'Беллман–Форд', cls: 'bellman', badge: 'badge-bellman',
+      complexity: 'O(V·E)', res: bRes, dist: bRes.dist, prev: bRes.prev,
+      warn: null
+    },
+    {
+      name: 'Флойд–Уоршелл', cls: 'floyd', badge: 'badge-floyd',
+      complexity: 'O(V³)', res: fRes, dist: fDist, prev: null,
+      warn: null
+    }
+  ];
+
+  const maxOps = Math.max(...algos.map(a => a.res.ops), 1);
+
+  document.getElementById('algo-empty').style.display = 'none';
+  document.getElementById('algo-results').style.display = 'block';
+
+  // Cards
+  document.getElementById('algo-cards').innerHTML = algos.map(a => `
+    <div class="algo-card">
+      <div class="algo-card-head ${a.cls}">
+        <span>${a.name}</span>
+        <span class="complexity-badge ${a.badge}">${a.complexity}</span>
+      </div>
+      <div class="algo-card-body">
+        <div class="algo-stat">Время: <strong>${a.res.time.toFixed(1)} мкс</strong></div>
+        <div class="algo-stat">Операций: <strong>${a.res.ops.toLocaleString()}</strong></div>
+        ${a.warn ? `<div class="warn-badge">⚠ ${a.warn}</div>` : ''}
+        <div class="dist-table-wrap">
+          <table class="dist-table">
+            <thead><tr><th>Вершина</th><th>Расстояние</th>${a.prev ? '<th>Путь</th>' : ''}</tr></thead>
+            <tbody>
+              ${nodes.map(n => {
+                const d = a.dist[n.id];
+                const path = a.prev ? reconstruct(a.prev, source, n.id).join('→') || '—' : '—';
+                return `<tr><td>${n.label}</td><td>${fmt(d)}</td>${a.prev ? `<td style="font-size:9px">${path}</td>` : ''}</tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  // Bar chart
+  document.getElementById('bar-chart').innerHTML = algos.map(a => {
+    const pct = (a.res.ops / maxOps * 100).toFixed(1);
+    return `
+      <div class="bar-row">
+        <span class="bar-name">${a.name}</span>
+        <div class="bar-track">
+          <div class="bar-fill ${a.cls}" style="width:${pct}%"></div>
+        </div>
+        <span class="bar-val">${a.res.ops.toLocaleString()}</span>
+      </div>`;
+  }).join('');
+}
+
+function renderMetrics(nodes, edges, directed) {
+  const { ecc, radius, diameter, centers, medians } = computeMetrics(nodes, edges, directed);
+  document.getElementById('metrics-empty').style.display = 'none';
+  document.getElementById('metrics-results').style.display = 'block';
+
+  const R = isFinite(radius) ? radius : '∞';
+  const D = isFinite(diameter) ? diameter : '∞';
+  document.getElementById('rad-diam-box').innerHTML = `
+    <div class="rd-card">
+      <div class="rd-label">Радиус R(G)</div>
+      <div class="rd-value radius">${R}</div>
+    </div>
+    <div class="rd-card">
+      <div class="rd-label">Диаметр D(G)</div>
+      <div class="rd-value diameter">${D}</div>
+    </div>`;
+
+  document.getElementById('formula-box').innerHTML = `
+    <div class="f-title">Теорема о радиусе и диаметре</div>
+    R(G) ≤ D(G) ≤ 2·R(G)
+    &nbsp;&nbsp;→&nbsp;&nbsp;
+    <strong>${R}</strong> ≤ <strong>${D}</strong> ≤ <strong>${isFinite(radius) ? 2*radius : '∞'}</strong>`;
+
+  const tbody = document.querySelector('#metrics-table tbody');
+  tbody.innerHTML = nodes.map(n => {
+    const e = ecc[n.id];
+    const isCenter = centers.includes(n.id);
+    const isMedian = medians.includes(n.id);
+    const tags = [
+      isCenter ? '<span class="tag-center">центр</span>' : '',
+      isMedian ? '<span class="tag-median">медиана</span>' : ''
+    ].filter(Boolean).join(' ');
+    return `<tr>
+      <td>${n.label}</td>
+      <td>${isFinite(e) ? e : '∞'}</td>
+      <td>${tags || '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderSpectral(nodes, edges, directed) {
+  if (nodes.length > 20) {
+    document.getElementById('spectral-empty').innerHTML =
+      '<p>Спектральный анализ доступен для графов до 20 вершин</p>';
+    return;
+  }
+  document.getElementById('spectral-empty').style.display = 'none';
+  document.getElementById('spectral-results').style.display = 'block';
+
+  const { L, ids, n } = computeLaplacian(nodes, edges, directed);
+
+  // Laplacian table
+  const maxAbs = Math.max(...L.flat().map(Math.abs), 1);
+  document.getElementById('laplacian-wrap').innerHTML = `
+    <table class="matrix-table">
+      <thead><tr><th></th>${ids.map(id => `<th>${id}</th>`).join('')}</tr></thead>
+      <tbody>
+        ${L.map((row, i) => `<tr>
+          <th style="background:#f5f5f5;padding:4px 8px;font-size:10px;font-weight:700">${ids[i]}</th>
+          ${row.map((v, j) => {
+            const cls = i===j ? 'diag' : v < 0 ? 'neg' : v === 0 ? 'zero' : '';
+            return `<td class="${cls}">${v}</td>`;
+          }).join('')}
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+
+  // Eigenvalues
+  const { vals, fiedlerVec, error } = computeEigenvalues(L, n);
+  if (error) {
+    document.getElementById('eigenvalue-list').innerHTML =
+      `<span style="color:#c62828;font-size:11px">Ошибка вычисления: ${error}</span>`;
+  } else {
+    document.getElementById('eigenvalue-list').innerHTML = vals.map((v, i) => {
+      const label = `λ${subscript(i+1)} = ${v.toFixed(4)}`;
+      const cls = Math.abs(v) < 1e-9 ? 'zero-ev' : i === 1 ? 'fiedler' : '';
+      return `<span class="ev-chip ${cls}" title="${i===1?'Алгебраическая связность (λ₂)':''}">${label}</span>`;
+    }).join('');
+
+    // Connectivity box
+    const lambda2 = vals[1] !== undefined ? vals[1] : 0;
+    const isConn = n <= 1 || Math.abs(lambda2) > 1e-9;
+    document.getElementById('connectivity-box').innerHTML = `
+      <div class="connectivity-box ${isConn ? 'connected' : 'disconnected'}">
+        <span class="conn-icon">${isConn ? '✓' : '✗'}</span>
+        <div class="conn-text">
+          <strong>${isConn ? 'Граф связен' : 'Граф несвязен'}</strong>
+          <span>λ₂ = ${lambda2.toFixed(4)} ${isConn
+            ? `&gt; 0 — алгебраическая связность: ${lambda2.toFixed(4)}`
+            : '= 0 — граф несвязен или содержит изолированные вершины'}</span>
+        </div>
+      </div>`;
+
+    // Fiedler vector
+    if (fiedlerVec && n > 1) {
+      state.fiedlerVec = {};
+      ids.forEach((id, i) => { state.fiedlerVec[id] = fiedlerVec[i]; });
+
+      document.getElementById('fiedler-table-wrap').innerHTML = `
+        <table class="fiedler-table">
+          <thead><tr><th>Вершина</th><th>Значение</th><th>Кластер</th></tr></thead>
+          <tbody>
+            ${ids.map((id, i) => {
+              const v = fiedlerVec[i];
+              const cls = v >= 0 ? 'cluster-pos' : 'cluster-neg';
+              const sign = v >= 0 ? '+ (A)' : '− (B)';
+              return `<tr><td>${id}</td><td>${v.toFixed(4)}</td><td class="${cls}">${sign}</td></tr>`;
+            }).join('')}
+          </tbody>
+        </table>`;
+    } else {
+      document.getElementById('fiedler-table-wrap').innerHTML =
+        '<p style="font-size:11px;color:#888">Недостаточно вершин для вектора Фидлера</p>';
+    }
+  }
+}
+
+function subscript(n) {
+  return String(n).split('').map(d => '₀₁₂₃₄₅₆₇₈₉'[d]).join('');
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   PART J — CODE TAB
+   ════════════════════════════════════════════════════════════════════════ */
+const CODE_BLOCKS = [
+  {
+    title: 'Алгоритм Дейкстры',
+    badge: 'O(V²)',
+    badgeCls: 'badge-dijkstra',
+    code: `import heapq
+
+def dijkstra(граф, источник):
+    """
+    Алгоритм Дейкстры — кратчайшие пути от одной вершины.
+    Работает только с неотрицательными весами.
+    Сложность: O((V + E) log V) с очередью с приоритетом.
+    """
+    расст = {v: float('inf') for v in граф}
+    расст[источник] = 0
+    предш = {v: None for v in граф}
+    очередь = [(0, источник)]          # (расстояние, вершина)
+
+    while очередь:
+        d, u = heapq.heappop(очередь)  # минимальный элемент
+        if d > расст[u]:
+            continue                   # устаревшая запись
+        for v, вес in граф[u].items():
+            новое_расст = d + вес
+            if новое_расст < расст[v]:
+                расст[v] = новое_расст
+                предш[v] = u
+                heapq.heappush(очередь, (новое_расст, v))
+
+    return расст, предш
+
+
+def восстановить_путь(предш, источник, цель):
+    """Восстанавливает путь от источника до цели."""
+    путь = []
+    текущ = цель
+    while текущ is not None:
+        путь.append(текущ)
+        текущ = предш[текущ]
+    путь.reverse()
+    return путь if путь[0] == источник else []
+
+
+# Пример использования:
+граф = {
+    1: {2: 4, 3: 7},
+    2: {3: 1},
+    3: {4: 2},
+    4: {}
+}
+расст, предш = dijkstra(граф, 1)
+print(расст)   # {1: 0, 2: 4, 3: 5, 4: 7}
+`
+  },
+  {
+    title: 'Алгоритм Беллмана–Форда',
+    badge: 'O(V·E)',
+    badgeCls: 'badge-bellman',
+    code: `def беллман_форд(вершины, рёбра, источник):
+    """
+    Алгоритм Беллмана–Форда — кратчайшие пути от одной вершины.
+    Поддерживает отрицательные веса.
+    Обнаруживает отрицательные циклы.
+    Сложность: O(V · E).
+    """
+    расст = {v: float('inf') for v in вершины}
+    расст[источник] = 0
+    предш = {v: None for v in вершины}
+
+    # V-1 итераций релаксации
+    for _ in range(len(вершины) - 1):
+        for u, v, вес in рёбра:
+            if расст[u] != float('inf') and расст[u] + вес < расст[v]:
+                расст[v] = расст[u] + вес
+                предш[v] = u
+
+    # Проверка на отрицательные циклы
+    отриц_цикл = False
+    for u, v, вес in рёбра:
+        if расст[u] != float('inf') and расст[u] + вес < расст[v]:
+            отриц_цикл = True
+            break
+
+    return расст, предш, отриц_цикл
+
+
+# Пример использования:
+вершины = [1, 2, 3, 4, 5]
+рёбра = [
+    (1, 2,  6), (1, 3,  7),
+    (2, 3,  8), (2, 4,  5), (2, 5, -4),
+    (3, 4, -3), (3, 5,  9),
+    (4, 2, -2),
+    (5, 4,  7), (5, 1,  2)
+]
+расст, предш, есть_цикл = беллман_форд(вершины, рёбра, 1)
+print(расст)         # кратчайшие расстояния
+print(есть_цикл)     # True/False
+`
+  },
+  {
+    title: 'Алгоритм Флойда–Уоршелла',
+    badge: 'O(V³)',
+    badgeCls: 'badge-floyd',
+    code: `def флойд_уоршелл(вершины, рёбра):
+    """
+    Алгоритм Флойда–Уоршелла — все кратчайшие пути.
+    Работает с отрицательными весами (но не с отриц. циклами).
+    Сложность: O(V³) по времени и O(V²) по памяти.
+    """
+    n = len(вершины)
+    индекс = {v: i for i, v in enumerate(вершины)}
+
+    # Матрица расстояний
+    D = [[float('inf')] * n for _ in range(n)]
+    P = [[j for j in range(n)] for _ in range(n)]  # матрица путей
+
+    for i in range(n):
+        D[i][i] = 0
+
+    for u, v, вес in рёбра:
+        i, j = индекс[u], индекс[v]
+        D[i][j] = min(D[i][j], вес)
+
+    # Основной цикл: перебор промежуточных вершин
+    for k in range(n):
+        for i in range(n):
+            for j in range(n):
+                if D[i][k] + D[k][j] < D[i][j]:
+                    D[i][j] = D[i][k] + D[k][j]
+                    P[i][j] = P[i][k]  # запоминаем промежуточную
+
+    return D, P, вершины, индекс
+
+
+def восстановить_путь_фу(P, индекс, вершины, источник, цель):
+    """Восстанавливает путь по матрице промежуточных вершин."""
+    i, j = индекс[источник], индекс[цель]
+    if P[i][j] is None:
+        return []
+    путь = [источник]
+    while i != j:
+        i = P[i][j]
+        путь.append(вершины[i])
+    return путь
+
+
+# Пример использования:
+вершины = ['A', 'B', 'C', 'D']
+рёбра = [
+    ('A', 'B', 3), ('A', 'C', 7),
+    ('B', 'C', 1), ('C', 'D', 2)
+]
+D, P, верш, idx = флойд_уоршелл(вершины, рёбра)
+# D[idx['A']][idx['D']] == 6  →  A→B→C→D
+`
+  }
+];
+
+function renderCodeTab() {
+  const acc = document.getElementById('accordion');
+  acc.innerHTML = CODE_BLOCKS.map((blk, i) => `
+    <div class="acc-item ${i === 0 ? 'open' : ''}" id="acc-${i}">
+      <div class="acc-head" onclick="toggleAcc(${i})">
+        <span class="acc-title">${blk.title}</span>
+        <span class="acc-badge ${blk.badgeCls}">${blk.badge}</span>
+        <span class="acc-arrow">▶</span>
+      </div>
+      <div class="acc-body">
+        <button class="copy-btn" onclick="copyCode(${i})">Копировать</button>
+        <pre><code class="language-python" id="code-${i}"></code></pre>
+      </div>
+    </div>
+  `).join('');
+
+  CODE_BLOCKS.forEach((blk, i) => {
+    const el = document.getElementById(`code-${i}`);
+    el.textContent = blk.code;
+    hljs.highlightElement(el);
+  });
+}
+
+function toggleAcc(i) {
+  document.getElementById(`acc-${i}`).classList.toggle('open');
+}
+
+function copyCode(i) {
+  navigator.clipboard.writeText(CODE_BLOCKS[i].code).then(() => {
+    const btn = document.querySelectorAll('.copy-btn')[i];
+    btn.textContent = 'Скопировано!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Копировать'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   PART K — MAIN RUN
+   ════════════════════════════════════════════════════════════════════════ */
+function runAll() {
+  const text = document.getElementById('edge-input').value;
+  const source = document.getElementById('source-input').value.trim();
+  const directed = state.directed;
+
+  const { nodes, edges } = parseGraph(text, directed);
+  if (!nodes.length) { alert('Введите хотя бы одно ребро.'); return; }
+
+  state.nodes = nodes;
+  state.edges = edges;
+  state.source = source;
+  state.hasRun = true;
+  state.fiedlerMode = false;
+  state.fiedlerVec = null;
+  document.getElementById('btn-fiedler').classList.remove('active-tool');
+
+  const W = canvas.width, H = canvas.height;
+  layoutNodes(state.nodes, W, H);
+  startSim();
+
+  document.getElementById('canvas-hint').style.display = 'none';
+  document.getElementById('canvas-legend').style.display = 'flex';
+  document.getElementById('graph-info').textContent =
+    `${nodes.length} вершин · ${edges.length} рёбер`;
+
+  renderAlgorithms(nodes, edges, source, directed);
+  renderMetrics(nodes, edges, directed);
+  renderSpectral(nodes, edges, directed);
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   PART L — ANIMATION LOOP
+   ════════════════════════════════════════════════════════════════════════ */
+let animFrame = null;
+function startSim() {
+  state.simTick = 0;
+  if (animFrame) cancelAnimationFrame(animFrame);
+  function loop() {
+    const W = canvas.width, H = canvas.height;
+    if (state.simTick < 300) {
+      simStep(state.nodes, state.edges, W, H);
+      state.simTick++;
+    }
+    draw();
+    animFrame = requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   PART M — CANVAS INTERACTION
+   ════════════════════════════════════════════════════════════════════════ */
+function canvasToWorld(cx, cy) {
+  return {
+    x: (cx - state.offsetX) / state.scale,
+    y: (cy - state.offsetY) / state.scale
+  };
+}
+
+canvas.addEventListener('mousedown', e => {
+  const { x, y } = canvasToWorld(e.offsetX, e.offsetY);
+  const hit = state.nodes.find(n => Math.hypot(n.x-x, n.y-y) < NODE_R + 4);
+  if (hit) {
+    state.dragging = hit;
+    state.dragOffX = x - hit.x;
+    state.dragOffY = y - hit.y;
+  } else {
+    state.panning = true;
+    state.panStartX = e.clientX;
+    state.panStartY = e.clientY;
+    state.panOX = state.offsetX;
+    state.panOY = state.offsetY;
+  }
+});
+
+canvas.addEventListener('mousemove', e => {
+  if (state.dragging) {
+    const { x, y } = canvasToWorld(e.offsetX, e.offsetY);
+    state.dragging.x = x - state.dragOffX;
+    state.dragging.y = y - state.dragOffY;
+    state.dragging.vx = 0; state.dragging.vy = 0;
+  } else if (state.panning) {
+    state.offsetX = state.panOX + (e.clientX - state.panStartX);
+    state.offsetY = state.panOY + (e.clientY - state.panStartY);
+  }
+  // Tooltip
+  const { x, y } = canvasToWorld(e.offsetX, e.offsetY);
+  const hit = state.nodes.find(n => Math.hypot(n.x-x, n.y-y) < NODE_R + 4);
+  const tip = document.getElementById('tooltip');
+  if (hit && state.hasRun) {
+    const d = state.distances[hit.id];
+    tip.textContent = `${hit.label}: d = ${d >= INF ? '∞' : d}`;
+    tip.style.display = 'block';
+    tip.style.left = (e.clientX + 12) + 'px';
+    tip.style.top  = (e.clientY - 8) + 'px';
+  } else {
+    tip.style.display = 'none';
+  }
+});
+
+canvas.addEventListener('mouseup',   () => { state.dragging = null; state.panning = false; });
+canvas.addEventListener('mouseleave',() => { state.dragging = null; state.panning = false;
+  document.getElementById('tooltip').style.display = 'none'; });
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = e.deltaY < 0 ? 1.1 : 0.9;
+  const mx = e.offsetX, my = e.offsetY;
+  state.offsetX = mx - (mx - state.offsetX) * factor;
+  state.offsetY = my - (my - state.offsetY) * factor;
+  state.scale  *= factor;
+}, { passive: false });
+
+/* ════════════════════════════════════════════════════════════════════════
+   PART N — UI WIRING
+   ════════════════════════════════════════════════════════════════════════ */
+
+// Tabs
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+// Direction toggle
+document.querySelectorAll('#dir-toggle button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#dir-toggle button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.directed = btn.dataset.val === 'directed';
+  });
+});
+
+// Run
+document.getElementById('run-btn').addEventListener('click', runAll);
+
+// Presets
+document.querySelectorAll('.preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const p = PRESETS[btn.dataset.preset];
+    document.getElementById('edge-input').value  = p.edges;
+    document.getElementById('source-input').value = p.source;
+    const isDir = p.directed;
+    state.directed = isDir;
+    document.querySelectorAll('#dir-toggle button').forEach(b => {
+      b.classList.toggle('active', b.dataset.val === (isDir ? 'directed' : 'undirected'));
+    });
+    runAll();
+  });
+});
+
+// Reset view
+document.getElementById('btn-reset-view').addEventListener('click', () => {
+  state.offsetX = 0; state.offsetY = 0; state.scale = 1;
+});
+
+// Fiedler toggle
+document.getElementById('btn-fiedler').addEventListener('click', () => {
+  if (!state.fiedlerVec) { alert('Сначала запустите граф.'); return; }
+  state.fiedlerMode = !state.fiedlerMode;
+  document.getElementById('btn-fiedler').classList.toggle('active-tool', state.fiedlerMode);
+});
+
+// Show Fiedler from spectral tab
+document.getElementById('show-fiedler-btn').addEventListener('click', () => {
+  if (!state.fiedlerVec) return;
+  state.fiedlerMode = true;
+  document.getElementById('btn-fiedler').classList.add('active-tool');
+  // switch to graph view — nothing to do, it's already visible
+});
+
+/* ════════════════════════════════════════════════════════════════════════
+   PART O — INIT
+   ════════════════════════════════════════════════════════════════════════ */
+window.addEventListener('resize', () => {
+  resizeCanvas();
+  draw();
+});
+
+resizeCanvas();
+renderCodeTab();
+
+// Start idle animation
+(function idleAnim() {
+  if (!state.nodes.length) requestAnimationFrame(idleAnim);
+})();
+
+</script>
+</body>
+</html>
