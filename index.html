@@ -1286,23 +1286,38 @@ function computeLaplacian(nodes, edges, directed) {
 function computeEigenvalues(L, n) {
   try {
     const M = math.matrix(L);
-    const { values, vectors } = math.eigs(M);
-    const vals = Array.from(values.toArray ? values.toArray() : values)
-      .map(v => typeof v === 'object' && v.re !== undefined ? v.re : +v);
-    vals.sort((a, b) => a - b);
-    const vecsArr = vectors.toArray ? vectors.toArray() : vectors;
-    const fiedlerIdx = 1; // λ₂
+    const result = math.eigs(M);
+
+    // Support both mathjs API versions:
+    // new (≥11): result.values + result.eigenvectors = [{value, vector}, ...]
+    // old (<11): result.values + result.vectors (matrix, columns = eigenvectors)
+    const rawVals = result.values.toArray ? result.values.toArray() : Array.from(result.values);
+    const vals = rawVals.map(v => typeof v === 'object' && v.re !== undefined ? v.re : +v);
+
+    // sort ascending, keep original index for Fiedler (λ₂)
+    const indexed = vals.map((v, i) => ({ v, i })).sort((a, b) => a.v - b.v);
+    const sortedVals = indexed.map(x => x.v);
+    const fiedlerOrigIdx = indexed.length > 1 ? indexed[1].i : null;
+
     let fiedlerVec = null;
-    if (vecsArr && n > 1) {
-      // columns are eigenvectors; find column for λ₂
-      // math.eigs returns columns = eigenvectors sorted by eigenvalue
-      fiedlerVec = Array.from({length: n}, (_, i) =>
-        typeof vecsArr[i][fiedlerIdx] === 'object'
-          ? vecsArr[i][fiedlerIdx].re
-          : +vecsArr[i][fiedlerIdx]
-      );
+    if (fiedlerOrigIdx !== null && n > 1) {
+      if (result.eigenvectors) {
+        const sorted = [...result.eigenvectors].sort((a, b) => {
+          const va = typeof a.value === 'object' ? a.value.re : +a.value;
+          const vb = typeof b.value === 'object' ? b.value.re : +b.value;
+          return va - vb;
+        });
+        const arr = sorted[1].vector.toArray ? sorted[1].vector.toArray() : Array.from(sorted[1].vector);
+        fiedlerVec = arr.map(v => typeof v === 'object' && v.re !== undefined ? v.re : +v);
+      } else if (result.vectors) {
+        const vecsArr = result.vectors.toArray ? result.vectors.toArray() : result.vectors;
+        fiedlerVec = Array.from({length: n}, (_, i) => {
+          const v = vecsArr[i][fiedlerOrigIdx];
+          return typeof v === 'object' && v.re !== undefined ? v.re : +v;
+        });
+      }
     }
-    return { vals, fiedlerVec };
+    return { vals: sortedVals, fiedlerVec };
   } catch (e) {
     return { vals: [], fiedlerVec: null, error: e.message };
   }
