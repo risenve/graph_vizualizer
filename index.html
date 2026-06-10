@@ -17,7 +17,6 @@ body {
   font-size: 13px;
   background: #f0f2f5;
   color: #1a1a1a;
-  min-width: 1200px;
 }
 
 /* ─── App shell ────────────────────────────────────────────────────────── */
@@ -27,6 +26,30 @@ body {
   grid-template-rows: 48px 1fr;
   height: 100vh;
   gap: 0;
+}
+
+/* ─── Mobile panel switcher ─────────────────────────────────────────────── */
+.mobile-tabs {
+  display: none;
+  background: #1a1a2e;
+  border-bottom: 2px solid #e06c00;
+}
+.mobile-tabs button {
+  flex: 1;
+  padding: 9px 4px;
+  border: none;
+  background: transparent;
+  color: #8892b0;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: all .15s;
+}
+.mobile-tabs button.active {
+  color: #e06c00;
+  border-bottom-color: #e06c00;
 }
 
 /* ─── Header ────────────────────────────────────────────────────────────── */
@@ -638,6 +661,36 @@ textarea { height: 140px; line-height: 1.6; }
   display: none;
   font-family: monospace;
 }
+
+/* ─── Responsive ────────────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .app {
+    grid-template-columns: 1fr;
+    grid-template-rows: 48px auto 1fr auto;
+    height: 100dvh;
+  }
+  .header { grid-column: 1; grid-row: 1; }
+  .mobile-tabs { display: flex; grid-column: 1; grid-row: 2; }
+  .left-panel  { grid-column: 1; grid-row: 3; }
+  .center-panel{ grid-column: 1; grid-row: 3; }
+  .right-panel { grid-column: 1; grid-row: 3; }
+
+  .left-panel, .right-panel { border: none; }
+
+  /* hide inactive mobile panels */
+  .left-panel.m-hidden,
+  .center-panel.m-hidden,
+  .right-panel.m-hidden { display: none; }
+
+  .canvas-wrap { min-height: 55vw; }
+
+  .header-sub { display: none; }
+
+  .algo-cards { grid-template-columns: 1fr; }
+
+  .tabs { overflow-x: auto; flex-wrap: nowrap; }
+  .tab-btn { white-space: nowrap; padding: 10px 10px; font-size: 10px; }
+}
 </style>
 </head>
 <body>
@@ -650,6 +703,13 @@ textarea { height: 140px; line-height: 1.6; }
     <h1>Визуализатор алгоритмов на графах</h1>
     <span class="header-sub">Теория графов · Курсовая работа</span>
   </header>
+
+  <!-- ── Mobile panel tabs ─────────────────────────────────────── -->
+  <div class="mobile-tabs" id="mobile-tabs">
+    <button class="active" data-panel="left">⚙ Ввод</button>
+    <button data-panel="center">⬡ Граф</button>
+    <button data-panel="right">📊 Анализ</button>
+  </div>
 
   <!-- ── Left panel ──────────────────────────────────────────── -->
   <aside class="left-panel">
@@ -1304,7 +1364,7 @@ function renderAlgorithms(nodes, edges, source, directed) {
       <div class="algo-card-body">
         <div class="algo-stat">Время: <strong>${a.res.time.toFixed(1)} мкс</strong></div>
         <div class="algo-stat">Операций: <strong>${a.res.ops.toLocaleString()}</strong></div>
-        ${a.warn ? `<div class="warn-badge">⚠ ${a.warn}</div>` : ''}
+        ${a.warn ? `<div class="warn-badge">${a.warn}</div>` : ''}
         <div class="dist-table-wrap">
           <table class="dist-table">
             <thead><tr><th>Вершина</th><th>Расстояние</th>${a.prev ? '<th>Путь</th>' : ''}</tr></thead>
@@ -1832,6 +1892,82 @@ document.getElementById('show-fiedler-btn').addEventListener('click', () => {
 });
 
 /* ════════════════════════════════════════════════════════════════════════
+   PART N2 — TOUCH SUPPORT
+   ════════════════════════════════════════════════════════════════════════ */
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const t = e.touches[0];
+  const rect = canvas.getBoundingClientRect();
+  const { x, y } = canvasToWorld(t.clientX - rect.left, t.clientY - rect.top);
+  const hit = state.nodes.find(n => Math.hypot(n.x-x, n.y-y) < NODE_R + 8);
+  if (hit) {
+    state.dragging = hit;
+    state.dragOffX = x - hit.x;
+    state.dragOffY = y - hit.y;
+  } else {
+    state.panning = true;
+    state.panStartX = t.clientX;
+    state.panStartY = t.clientY;
+    state.panOX = state.offsetX;
+    state.panOY = state.offsetY;
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  const t = e.touches[0];
+  const rect = canvas.getBoundingClientRect();
+  if (state.dragging) {
+    const { x, y } = canvasToWorld(t.clientX - rect.left, t.clientY - rect.top);
+    state.dragging.x = x - state.dragOffX;
+    state.dragging.y = y - state.dragOffY;
+    state.dragging.vx = 0; state.dragging.vy = 0;
+  } else if (state.panning) {
+    state.offsetX = state.panOX + (t.clientX - state.panStartX);
+    state.offsetY = state.panOY + (t.clientY - state.panStartY);
+  }
+  // pinch-zoom
+  if (e.touches.length === 2) {
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    if (canvas._pinchDist) {
+      const factor = dist / canvas._pinchDist;
+      const mx = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
+      const my = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
+      state.offsetX = mx - (mx - state.offsetX) * factor;
+      state.offsetY = my - (my - state.offsetY) * factor;
+      state.scale *= factor;
+    }
+    canvas._pinchDist = dist;
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchend', () => {
+  state.dragging = null; state.panning = false; canvas._pinchDist = null;
+});
+
+// Mobile panel switching
+document.querySelectorAll('#mobile-tabs button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#mobile-tabs button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const panel = btn.dataset.panel;
+    document.querySelector('.left-panel').classList.toggle('m-hidden', panel !== 'left');
+    document.querySelector('.center-panel').classList.toggle('m-hidden', panel !== 'center');
+    document.querySelector('.right-panel').classList.toggle('m-hidden', panel !== 'right');
+    if (panel === 'center') { resizeCanvas(); draw(); }
+  });
+});
+
+// On mobile: after run, switch to graph panel automatically
+document.getElementById('run-btn').addEventListener('click', () => {
+  if (window.innerWidth <= 900) {
+    document.querySelector('#mobile-tabs [data-panel="center"]').click();
+  }
+}, true); // capture phase so it fires before the existing listener
+
+/* ════════════════════════════════════════════════════════════════════════
    PART O — INIT
    ════════════════════════════════════════════════════════════════════════ */
 window.addEventListener('resize', () => {
@@ -1841,6 +1977,20 @@ window.addEventListener('resize', () => {
 
 resizeCanvas();
 renderCodeTab();
+
+// Init mobile panel visibility
+function initMobilePanels() {
+  if (window.innerWidth <= 900) {
+    document.querySelector('.center-panel').classList.add('m-hidden');
+    document.querySelector('.right-panel').classList.add('m-hidden');
+  } else {
+    document.querySelector('.left-panel').classList.remove('m-hidden');
+    document.querySelector('.center-panel').classList.remove('m-hidden');
+    document.querySelector('.right-panel').classList.remove('m-hidden');
+  }
+}
+initMobilePanels();
+window.addEventListener('resize', initMobilePanels);
 
 // Start idle animation
 (function idleAnim() {
